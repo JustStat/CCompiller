@@ -19,10 +19,10 @@ guard let input = FileHandle(forReadingAtPath: filePath) else {
     exit(1)
 }
 
-while true {
-    let data = input.readData(ofLength: 1)
-    if data.isEmpty {
-        break
+let tokenizer = Tokenizer(file: input)
+while let token = tokenizer.next() {
+    if token.value != "" {
+        print("row: \(token.row) coll: \(token.col), type:\(token.type), value:\(token.value)")
     }
 }
 

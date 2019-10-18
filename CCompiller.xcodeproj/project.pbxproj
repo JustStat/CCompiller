@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		141F87982355C2EA00F79255 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 141F87972355C2EA00F79255 /* main.swift */; };
+		141F879F2355E2FF00F79255 /* Tokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 141F879E2355E2FF00F79255 /* Tokenizer.swift */; };
+		141F87A12355E34200F79255 /* Token.swift in Sources */ = {isa = PBXBuildFile; fileRef = 141F87A02355E34200F79255 /* Token.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -25,6 +27,8 @@
 /* Begin PBXFileReference section */
 		141F87942355C2EA00F79255 /* CCompiller */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = CCompiller; sourceTree = BUILT_PRODUCTS_DIR; };
 		141F87972355C2EA00F79255 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		141F879E2355E2FF00F79255 /* Tokenizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokenizer.swift; sourceTree = "<group>"; };
+		141F87A02355E34200F79255 /* Token.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Token.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +62,8 @@
 			isa = PBXGroup;
 			children = (
 				141F87972355C2EA00F79255 /* main.swift */,
+				141F879E2355E2FF00F79255 /* Tokenizer.swift */,
+				141F87A02355E34200F79255 /* Token.swift */,
 			);
 			path = CCompiller;
 			sourceTree = "<group>";
@@ -120,7 +126,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				141F87A12355E34200F79255 /* Token.swift in Sources */,
 				141F87982355C2EA00F79255 /* main.swift in Sources */,
+				141F879F2355E2FF00F79255 /* Tokenizer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
