@@ -8,15 +8,20 @@
 
 import Foundation
 
-typealias CharHandler = ((String)->(Bool))
+struct CharHandler {
+    var handler: ((String, TokenType)->(Bool))
+    var tokenType: TokenType
+}
 
 enum TokenizerState: Int, CaseIterable {
     case start = 0
     case identifier
     case string
+    case dquote
     case integer
     case `operator`
     case equal
+    case separator
     case tokenFound
     case error
 }
@@ -31,22 +36,27 @@ class Tokenizer {
     init(file: FileHandle) {
         self.file = file
         for c in Character("a")...Character("z") {
-            addCharToHandlers(c, withHandler: charHandler)
+            addCharToHandlers(c, withHandler: CharHandler(handler: charHandler, tokenType: .char))
         }
         
         for digit in Character("0")...Character("9") {
-            addCharToHandlers(digit, withHandler: digitHandler)
+            addCharToHandlers(digit, withHandler: CharHandler(handler: digitHandler, tokenType: .int))
         }
         
         for operation in [Character("+"), Character("-"), Character("*"), Character("/")] {
-            addCharToHandlers(operation, withHandler: operatorHandler)
+            addCharToHandlers(operation, withHandler: CharHandler(handler: operatorHandler, tokenType: .operation))
         }
         
-        addCharToHandlers("\"", withHandler: dquoteHandler)
-        addCharToHandlers("=", withHandler: equalHandler)
+        addCharToHandlers("\"", withHandler: CharHandler(handler: dquoteHandler, tokenType: .dquote))
+        addCharToHandlers("=", withHandler: CharHandler(handler: equalHandler, tokenType: .equal))
+        addCharToHandlers("{", withHandler: CharHandler(handler: separatorHandler, tokenType: .leftCurlyBrace))
+        addCharToHandlers("}", withHandler: CharHandler(handler: separatorHandler, tokenType: .rightCurlyBrace))
+        addCharToHandlers(";", withHandler: CharHandler(handler: separatorHandler, tokenType: .semicolon))
+        addCharToHandlers("(", withHandler: CharHandler(handler: separatorHandler, tokenType: .leftBrace))
+        addCharToHandlers(")", withHandler: CharHandler(handler: separatorHandler, tokenType: .rightBrace))
     }
     
-    func addCharToHandlers(_ char: Character, withHandler handler: @escaping CharHandler) {
+    func addCharToHandlers(_ char: Character, withHandler handler: CharHandler) {
         if let charCode = char.intValue() {
             startHandlers[charCode] = handler
         } else {
@@ -55,10 +65,6 @@ class Tokenizer {
     }
 
     func next() -> Token? {
-        if state == .operator {
-            state = .start
-            return  Token(col: 0, row: 0, type: tokenType, value: currentToken)
-        }
         currentToken = ""
         while true {
             let data = file.readData(ofLength: 1)
@@ -75,12 +81,15 @@ class Tokenizer {
             
             let charCode = Character(tokenChar).intValue()!
             
-            if let needToFinishPreviousToken = startHandlers[charCode]?(tokenChar) {
+            if let needToFinishPreviousToken = startHandlers[charCode]?.handler(tokenChar, startHandlers[charCode]!.tokenType) {
                 if needToFinishPreviousToken {
                     file.seek(toFileOffset: file.offsetInFile - 1)
                     break
                 }
                 currentToken.append(tokenChar)
+                if state == .tokenFound {
+                    break
+                }
             }
         }
         
@@ -94,18 +103,25 @@ private extension Tokenizer {
     
     //MARK: Handlers
     
-    func charHandler(_ char: String) -> Bool {
-        if state == .string {
+    func charHandler(_ char: String, type: TokenType) -> Bool {
+        if tokenType == .dquote {
             tokenType = .string
+            state = .string
+        }
+        if state != .identifier && state != .string && state != .start {
+            return true
+        } else if state == .string {
+            return false
         } else {
             tokenType = .identifier
+            state = .identifier
+            return false
         }
         
-        return false
     }
     
-    func digitHandler(_ char: String) -> Bool {
-        if state == .identifier {
+    func digitHandler(_ char: String, type: TokenType) -> Bool {
+        if state != .start {
             return false
         }
         state = .integer
@@ -113,28 +129,40 @@ private extension Tokenizer {
         return false
     }
     
-    func operatorHandler(_ char: String) -> Bool {
+    func operatorHandler(_ char: String, type: TokenType) -> Bool {
         tokenType = .operation
-        state = .operator
+        state = .tokenFound
         return true
     }
     
-    func dquoteHandler(_ char: String) -> Bool {
-        if state == .string {
-            currentToken.append(char)
-            return false
+    func dquoteHandler(_ char: String, type: TokenType) -> Bool {
+        if state != .start {
+            return true
         }
-        tokenType = .string
-        state = .string
+        if state == .dquote {
+            currentToken.append(char)
+            return true
+        }
+        tokenType = .dquote
+        state = .tokenFound
         return false
     }
     
-    func equalHandler(_ char: String) -> Bool {
+    func equalHandler(_ char: String, type: TokenType) -> Bool {
         if state != .start {
             return true
         }
         tokenType = .equal
-        state = .equal
+        state = .tokenFound
+        return false
+    }
+    
+    func separatorHandler(_ char: String, type: TokenType) -> Bool {
+        if state != .start {
+            return true
+        }
+        tokenType = type
+        state = .tokenFound
         return false
     }
     
