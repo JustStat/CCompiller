@@ -18,6 +18,7 @@ enum TokenType {
     case keyWord
     case identifier
     case operation
+    case equal
 }
 
 struct Token {
