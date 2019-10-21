@@ -17,6 +17,7 @@ enum TokenType {
     case delimeter
     case identifier
     case operation
+    case division
     case equal
     case dquote
     case leftBrace
@@ -25,6 +26,7 @@ enum TokenType {
     case rightCurlyBrace
     case semicolon
     case keyword
+    case comment
 }
 
 struct Token {

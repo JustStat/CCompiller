@@ -24,16 +24,23 @@ enum TokenizerState: Int, CaseIterable {
     case separator
     case tokenFound
     case savePrevious
+    case comment
+    case slash
+    case division
     case error
 }
 
 class Tokenizer {
     private let file: FileHandle
+    private let keywords = ["int", "float", "return", "void", "if", "else", "do", "while", "break"]
+    
+    
     private var state = TokenizerState.start
     private var tokenType = TokenType.none
     private var currentToken = ""
+    private var col = 1
+    private var row = 1
     private var startHandlers = [Int: CharHandler]()
-    private let keywords = ["int", "float", "return", "void", "if", "else", "do", "while", "break"]
     
     init(file: FileHandle) {
         self.file = file
@@ -45,7 +52,7 @@ class Tokenizer {
             addCharToHandlers(digit, withHandler: CharHandler(handler: digitHandler, tokenType: .int))
         }
         
-        for operation in [Character("+"), Character("-"), Character("*"), Character("/")] {
+        for operation in [Character("+"), Character("-"), Character("*")] {
             addCharToHandlers(operation, withHandler: CharHandler(handler: operatorHandler, tokenType: .operation))
         }
         
@@ -56,6 +63,9 @@ class Tokenizer {
         addCharToHandlers(";", withHandler: CharHandler(handler: separatorHandler, tokenType: .semicolon))
         addCharToHandlers("(", withHandler: CharHandler(handler: separatorHandler, tokenType: .leftBrace))
         addCharToHandlers(")", withHandler: CharHandler(handler: separatorHandler, tokenType: .rightBrace))
+        addCharToHandlers("\n", withHandler: CharHandler(handler: newStringHandler, tokenType: .none))
+        addCharToHandlers("/", withHandler: CharHandler(handler: slashHandler, tokenType: .comment))
+        addCharToHandlers(" ", withHandler: CharHandler(handler: spaceHandler, tokenType: .none))
     }
     
     func addCharToHandlers(_ char: Character, withHandler handler: CharHandler) {
@@ -67,6 +77,7 @@ class Tokenizer {
     }
 
     func next() -> Token? {
+        col += currentToken.count
         currentToken = ""
         while true {
             let data = file.readData(ofLength: 1)
@@ -74,16 +85,20 @@ class Tokenizer {
                 return nil
             }
             
-            if tokenChar == " " || tokenChar == "\n" {
-                state = .start
-                break
-            } else if tokenChar == "" {
+            if tokenChar == "" {
                 return nil
+            }
+            
+            if state == .comment && tokenChar != "\n" {
+                continue
             }
             
             let charCode = Character(tokenChar).intValue()!
             
             if let _ = startHandlers[charCode]?.handler(tokenChar, startHandlers[charCode]!.tokenType) {
+                if state == .start {
+                    break
+                }
                 if state == .savePrevious {
                     file.seek(toFileOffset: file.offsetInFile - 1)
                     break
@@ -99,7 +114,7 @@ class Tokenizer {
         if keywords.contains(currentToken) {
             tokenType = .keyword
         }
-        return Token(col: 0, row: 0, type: tokenType, value: currentToken)
+        return Token(col: col, row: row, type: tokenType, value: currentToken)
     }
 }
 
@@ -114,7 +129,7 @@ private extension Tokenizer {
         }
         if state != .identifier && state != .string && state != .start {
             state = .savePrevious
-        } else if state == .string {
+        } else if state == .string || state == .comment {
             return
         } else {
             tokenType = .identifier
@@ -170,6 +185,31 @@ private extension Tokenizer {
         }
         tokenType = type
         state = .tokenFound
+    }
+    
+    func newStringHandler(_ char: String, type: TokenType) {
+        row += 1
+        col = 1
+        state = .start
+    }
+    
+    func spaceHandler(_ char: String, type: TokenType) {
+        if state != .start {
+            state = .savePrevious
+            return
+        }
+        col += 1
+        tokenType = .none
+    }
+    
+    func slashHandler(_ char: String, type: TokenType) {
+        if state == .division {
+            tokenType = .comment
+            state = .comment
+            return
+        }
+        tokenType = .division
+        state = .division
     }
     
     func exitWithError(_ error: String, code: Int32) {
