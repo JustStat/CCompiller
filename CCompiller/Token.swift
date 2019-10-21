@@ -27,6 +27,9 @@ enum TokenType {
     case semicolon
     case keyword
     case comment
+    case exclamation
+    case biggerThan
+    case lowerThan
 }
 
 struct Token {

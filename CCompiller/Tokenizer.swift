@@ -30,7 +30,7 @@ enum TokenizerState: Int, CaseIterable {
     case error
 }
 
-class Tokenizer {
+public class Tokenizer {
     private let file: FileHandle
     private let keywords = ["int", "float", "return", "void", "if", "else", "do", "while", "break"]
     
@@ -66,6 +66,9 @@ class Tokenizer {
         addCharToHandlers("\n", withHandler: CharHandler(handler: newStringHandler, tokenType: .none))
         addCharToHandlers("/", withHandler: CharHandler(handler: slashHandler, tokenType: .comment))
         addCharToHandlers(" ", withHandler: CharHandler(handler: spaceHandler, tokenType: .none))
+        addCharToHandlers("!", withHandler: CharHandler(handler: excamationHandler, tokenType: .exclamation))
+        addCharToHandlers(">", withHandler: CharHandler(handler: biggerThanHandler, tokenType: .biggerThan))
+        addCharToHandlers("<", withHandler: CharHandler(handler: biggerThanHandler, tokenType: .lowerThan))
     }
     
     func addCharToHandlers(_ char: Character, withHandler handler: CharHandler) {
@@ -188,6 +191,10 @@ private extension Tokenizer {
     }
     
     func newStringHandler(_ char: String, type: TokenType) {
+        if state != .start {
+            state = .savePrevious
+            return
+        }
         row += 1
         col = 1
         state = .start
@@ -210,6 +217,24 @@ private extension Tokenizer {
         }
         tokenType = .division
         state = .division
+    }
+    
+    func excamationHandler(_ char: String, type: TokenType) {
+        if state != .start {
+            state = .savePrevious
+            return
+        }
+        tokenType = type
+        state = .tokenFound
+    }
+    
+    func biggerThanHandler(_ char: String, type: TokenType) {
+        if state != .start {
+            state = .savePrevious
+            return
+        }
+        tokenType = type
+        state = .tokenFound
     }
     
     func exitWithError(_ error: String, code: Int32) {
