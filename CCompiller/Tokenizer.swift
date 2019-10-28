@@ -19,6 +19,7 @@ enum TokenizerState: Int, CaseIterable {
     case string
     case dquote
     case integer
+    case float
     case `operator`
     case equal
     case separator
@@ -27,12 +28,13 @@ enum TokenizerState: Int, CaseIterable {
     case comment
     case slash
     case division
+    case ampersand
     case error
 }
 
 public class Tokenizer {
     private let file: FileHandle
-    private let keywords = ["int", "float", "return", "void", "if", "else", "do", "while", "break"]
+    private let keywords = ["int", "float", "return", "void", "if", "else", "do", "while", "break", "const"]
     
     
     private var state = TokenizerState.start
@@ -52,23 +54,25 @@ public class Tokenizer {
             addCharToHandlers(digit, withHandler: CharHandler(handler: digitHandler, tokenType: .int))
         }
         
-        for operation in [Character("+"), Character("-"), Character("*")] {
-            addCharToHandlers(operation, withHandler: CharHandler(handler: operatorHandler, tokenType: .operation))
-        }
-        
         addCharToHandlers("\"", withHandler: CharHandler(handler: dquoteHandler, tokenType: .dquote))
         addCharToHandlers("=", withHandler: CharHandler(handler: equalHandler, tokenType: .equal))
-        addCharToHandlers("{", withHandler: CharHandler(handler: separatorHandler, tokenType: .leftCurlyBrace))
-        addCharToHandlers("}", withHandler: CharHandler(handler: separatorHandler, tokenType: .rightCurlyBrace))
-        addCharToHandlers(";", withHandler: CharHandler(handler: separatorHandler, tokenType: .semicolon))
-        addCharToHandlers("(", withHandler: CharHandler(handler: separatorHandler, tokenType: .leftBrace))
-        addCharToHandlers(")", withHandler: CharHandler(handler: separatorHandler, tokenType: .rightBrace))
+        addCharToHandlers("{", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .leftCurlyBrace))
+        addCharToHandlers("}", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .rightCurlyBrace))
+        addCharToHandlers(";", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .semicolon))
+        addCharToHandlers("(", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .leftBrace))
+        addCharToHandlers(")", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .rightBrace))
         addCharToHandlers("\n", withHandler: CharHandler(handler: newStringHandler, tokenType: .none))
         addCharToHandlers("/", withHandler: CharHandler(handler: slashHandler, tokenType: .comment))
         addCharToHandlers(" ", withHandler: CharHandler(handler: spaceHandler, tokenType: .none))
-        addCharToHandlers("!", withHandler: CharHandler(handler: excamationHandler, tokenType: .exclamation))
-        addCharToHandlers(">", withHandler: CharHandler(handler: biggerThanHandler, tokenType: .biggerThan))
-        addCharToHandlers("<", withHandler: CharHandler(handler: biggerThanHandler, tokenType: .lowerThan))
+        addCharToHandlers("!", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .exclamation))
+        addCharToHandlers(">", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .biggerThan))
+        addCharToHandlers("<", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .lowerThan))
+        addCharToHandlers(".", withHandler: CharHandler(handler: dotHandler, tokenType: .dot))
+        addCharToHandlers("&", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .ampersand))
+        addCharToHandlers("|", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .pipe))
+        addCharToHandlers("+", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .plus))
+        addCharToHandlers("-", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .minus))
+        addCharToHandlers("*", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .multiple))
     }
     
     func addCharToHandlers(_ char: Character, withHandler handler: CharHandler) {
@@ -150,15 +154,6 @@ private extension Tokenizer {
         tokenType = .int
     }
     
-    func operatorHandler(_ char: String, type: TokenType) {
-        tokenType = .operation
-        if state != .start {
-            state = .savePrevious
-        } else {
-            state = .tokenFound
-        }
-    }
-    
     func dquoteHandler(_ char: String, type: TokenType) {
         if state != .start {
             return
@@ -178,15 +173,6 @@ private extension Tokenizer {
             return
         }
         tokenType = .equal
-        state = .tokenFound
-    }
-    
-    func separatorHandler(_ char: String, type: TokenType) {
-        if state != .start {
-            state = .savePrevious
-            return
-        }
-        tokenType = type
         state = .tokenFound
     }
     
@@ -219,16 +205,20 @@ private extension Tokenizer {
         state = .division
     }
     
-    func excamationHandler(_ char: String, type: TokenType) {
-        if state != .start {
+    func dotHandler(_ char: String, type: TokenType) {
+        if state == .integer {
+            tokenType = .float
+            state = .float
+        } else if state == .start {
+            tokenType = .dot
+            state = .tokenFound
+        } else {
+            tokenType = .dot
             state = .savePrevious
-            return
         }
-        tokenType = type
-        state = .tokenFound
     }
     
-    func biggerThanHandler(_ char: String, type: TokenType) {
+    func singleTokenHandler(_ char: String, type: TokenType) {
         if state != .start {
             state = .savePrevious
             return

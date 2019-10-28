@@ -30,6 +30,12 @@ enum TokenType {
     case exclamation
     case biggerThan
     case lowerThan
+    case dot
+    case ampersand
+    case pipe
+    case plus
+    case minus
+    case multiple
 }
 
 struct Token {
