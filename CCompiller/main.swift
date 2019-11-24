@@ -8,7 +8,11 @@
 
 import Foundation
 
-let filePath = CommandLine.arguments[1]
+//if CommandLine.arguments.count < 2 {
+//    print("No file path in arguments")
+//    exit(1)
+//}
+let filePath = "/Users/kirillvarlamov/Documents/Учеба/4 курс зима/Компиль/CCompiller/build/Debug/input.swift" //CommandLine.arguments[1]
 if !FileManager.default.fileExists(atPath: filePath) {
     print("File not found at: \(filePath)")
     exit(1)

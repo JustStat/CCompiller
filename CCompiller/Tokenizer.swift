@@ -29,6 +29,8 @@ enum TokenizerState: Int, CaseIterable {
     case slash
     case division
     case ampersand
+    case space
+    case newString
     case error
 }
 
@@ -43,6 +45,7 @@ public class Tokenizer {
     private var col = 1
     private var row = 1
     private var startHandlers = [Int: CharHandler]()
+    private var errorMessage = ""
     
     init(file: FileHandle) {
         self.file = file
@@ -106,6 +109,14 @@ public class Tokenizer {
                 if state == .start {
                     break
                 }
+                if state == .error {
+                    return Token(col: col, row: row, type: .error, value: errorMessage)
+                }
+                if state == .space || state == .newString {
+                    currentToken = ""
+                    state = .start
+                    continue
+                }
                 if state == .savePrevious {
                     file.seek(toFileOffset: file.offsetInFile - 1)
                     break
@@ -121,6 +132,19 @@ public class Tokenizer {
         if keywords.contains(currentToken) {
             tokenType = .keyword
         }
+        
+        if tokenType == .int {
+            guard let _ = Int(currentToken) else {
+                return Token(col: col, row: row, type: .error, value: "Lexer error: Int is out of bounds")
+            }
+        }
+        
+        if tokenType == .float && currentToken.suffix(1) != "e" {
+            guard let _ = Float(currentToken) else {
+                return Token(col: col, row: row, type: .error, value: "Lexer error: Float is out of bounds")
+            }
+        }
+        
         return Token(col: col, row: row, type: tokenType, value: currentToken)
     }
 }
@@ -133,6 +157,19 @@ private extension Tokenizer {
         if tokenType == .dquote {
             tokenType = .string
             state = .string
+        }
+        if tokenType == .int {
+            state = .error
+            errorMessage = "Lexer error: Invalid digit \"\(char)\" in decimal"
+            return
+        }
+        if tokenType == .float && char == "e" {
+            return
+        }
+        if tokenType == .float {
+            state = .error
+            errorMessage = "Lexer error: Invalid digit \"\(char)\" in float"
+            return
         }
         if state != .identifier && state != .string && state != .start {
             state = .savePrevious
@@ -150,6 +187,7 @@ private extension Tokenizer {
         if state != .start {
             return
         }
+        
         state = .integer
         tokenType = .int
     }
@@ -183,7 +221,7 @@ private extension Tokenizer {
         }
         row += 1
         col = 1
-        state = .start
+        state = .newString
     }
     
     func spaceHandler(_ char: String, type: TokenType) {
@@ -192,7 +230,8 @@ private extension Tokenizer {
             return
         }
         col += 1
-        tokenType = .none
+        tokenType = .space
+        state = .space
     }
     
     func slashHandler(_ char: String, type: TokenType) {
@@ -209,6 +248,10 @@ private extension Tokenizer {
         if state == .integer {
             tokenType = .float
             state = .float
+        } else if state == .float {
+            state = .error
+            errorMessage = "Lexer error: Invalid extra point in Float"
+            return
         } else if state == .start {
             tokenType = .dot
             state = .tokenFound
@@ -219,6 +262,9 @@ private extension Tokenizer {
     }
     
     func singleTokenHandler(_ char: String, type: TokenType) {
+        if state == .float && (type == .minus || type == .plus) && currentToken.suffix(1) == "e" {
+            return
+        }
         if state != .start {
             state = .savePrevious
             return

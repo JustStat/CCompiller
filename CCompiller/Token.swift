@@ -36,9 +36,11 @@ enum TokenType {
     case plus
     case minus
     case multiple
+    case space
+    case error
 }
 
-struct Token {
+struct Token: Equatable {
     var col: Int
     var row: Int
     var type: TokenType
