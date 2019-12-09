@@ -29,14 +29,17 @@ enum TokenizerState: Int, CaseIterable {
     case slash
     case division
     case ampersand
+    case pipe
     case space
     case newString
+    case biggerThan
+    case lowerThan
     case error
 }
 
 public class Tokenizer {
     private let file: FileHandle
-    private let keywords = ["int", "float", "return", "void", "if", "else", "do", "while", "break", "const"]
+    private let keywords = ["int", "float", "return", "void", "if", "else", "do", "while", "break", "const", "char"]
     
     
     private var state = TokenizerState.start
@@ -68,11 +71,11 @@ public class Tokenizer {
         addCharToHandlers("/", withHandler: CharHandler(handler: slashHandler, tokenType: .comment))
         addCharToHandlers(" ", withHandler: CharHandler(handler: spaceHandler, tokenType: .none))
         addCharToHandlers("!", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .exclamation))
-        addCharToHandlers(">", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .biggerThan))
-        addCharToHandlers("<", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .lowerThan))
+        addCharToHandlers(">", withHandler: CharHandler(handler: biggerThanHandler, tokenType: .biggerThan))
+        addCharToHandlers("<", withHandler: CharHandler(handler: lowerThanHandler, tokenType: .lowerThan))
         addCharToHandlers(".", withHandler: CharHandler(handler: dotHandler, tokenType: .dot))
-        addCharToHandlers("&", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .ampersand))
-        addCharToHandlers("|", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .pipe))
+        addCharToHandlers("&", withHandler: CharHandler(handler: ampersandHandler, tokenType: .ampersand))
+        addCharToHandlers("|", withHandler: CharHandler(handler: pipeHandler, tokenType: .pipe))
         addCharToHandlers("+", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .plus))
         addCharToHandlers("-", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .minus))
         addCharToHandlers("*", withHandler: CharHandler(handler: singleTokenHandler, tokenType: .multiple))
@@ -110,7 +113,7 @@ public class Tokenizer {
                     break
                 }
                 if state == .error {
-                    return Token(col: col, row: row, type: .error, value: errorMessage)
+                    return Token(col: col, row: row, type: .error, source: errorMessage)
                 }
                 if state == .space || state == .newString {
                     currentToken = ""
@@ -118,6 +121,11 @@ public class Tokenizer {
                     continue
                 }
                 if state == .savePrevious {
+                    if tokenType == .comment {
+                        currentToken = ""
+                        state = .start
+                        continue
+                    }
                     file.seek(toFileOffset: file.offsetInFile - 1)
                     break
                 }
@@ -135,17 +143,17 @@ public class Tokenizer {
         
         if tokenType == .int {
             guard let _ = Int(currentToken) else {
-                return Token(col: col, row: row, type: .error, value: "Lexer error: Int is out of bounds")
+                return Token(col: col, row: row, type: .error, source: "Lexer error: Int is out of bounds")
             }
         }
         
         if tokenType == .float && currentToken.suffix(1) != "e" {
             guard let _ = Float(currentToken) else {
-                return Token(col: col, row: row, type: .error, value: "Lexer error: Float is out of bounds")
+                return Token(col: col, row: row, type: .error, source: "Lexer error: Float is out of bounds")
             }
         }
         
-        return Token(col: col, row: row, type: tokenType, value: currentToken)
+        return Token(col: col, row: row, type: tokenType, source: currentToken)
     }
 }
 
@@ -193,6 +201,10 @@ private extension Tokenizer {
     }
     
     func dquoteHandler(_ char: String, type: TokenType) {
+        if state == .string{
+            state = .savePrevious
+            return
+        }
         if state != .start {
             return
         }
@@ -206,12 +218,31 @@ private extension Tokenizer {
     }
     
     func equalHandler(_ char: String, type: TokenType) {
-        if state != .start {
+        if state != .start && state != .equal && state != .biggerThan && state != .lowerThan {
             state = .savePrevious
             return
         }
-        tokenType = .equal
-        state = .tokenFound
+        
+        if state == .biggerThan {
+            state = .tokenFound
+            tokenType = .biggerOrEqual
+            return
+        }
+        
+        if state == .lowerThan {
+            state = .tokenFound
+            tokenType = .lowerOrEqual
+            return
+        }
+        
+        if state == .equal {
+            state = .tokenFound
+            tokenType = .comparasion
+            return
+        }
+        
+        tokenType = type
+        state = .equal
     }
     
     func newStringHandler(_ char: String, type: TokenType) {
@@ -240,6 +271,10 @@ private extension Tokenizer {
             state = .comment
             return
         }
+        if state != .start {
+            state = .savePrevious
+            return
+        }
         tokenType = .division
         state = .division
     }
@@ -259,6 +294,55 @@ private extension Tokenizer {
             tokenType = .dot
             state = .savePrevious
         }
+    }
+    
+    func pipeHandler(_ char: String, type: TokenType) {
+        if state != .start && state != .pipe {
+            state = .savePrevious
+            return
+        }
+        
+        if state == .pipe {
+            state = .tokenFound
+            tokenType = .or
+            return
+        }
+        tokenType = type
+        state = .pipe
+    }
+    
+    func ampersandHandler(_ char: String, type: TokenType) {
+        if state != .start && state != .ampersand {
+            state = .savePrevious
+            return
+        }
+        if state == .ampersand {
+            state = .tokenFound
+            tokenType = .and
+            return
+        }
+        tokenType = type
+        state = .ampersand
+    }
+    
+    func biggerThanHandler(_ char: String, type: TokenType) {
+        if state != .start {
+            state = .savePrevious
+            return
+        }
+        
+        tokenType = type
+        state = .biggerThan
+    }
+    
+    func lowerThanHandler(_ char: String, type: TokenType) {
+        if state != .start {
+            state = .savePrevious
+            return
+        }
+        
+        tokenType = type
+        state = .lowerThan
     }
     
     func singleTokenHandler(_ char: String, type: TokenType) {

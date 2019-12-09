@@ -36,6 +36,11 @@ enum TokenType {
     case plus
     case minus
     case multiple
+    case or
+    case and
+    case biggerOrEqual
+    case lowerOrEqual
+    case comparasion
     case space
     case error
 }
@@ -44,5 +49,6 @@ struct Token: Equatable {
     var col: Int
     var row: Int
     var type: TokenType
-    var value: String
+    var source: String
+    var value: AnyHashable?
 }

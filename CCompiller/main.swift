@@ -25,8 +25,8 @@ guard let input = FileHandle(forReadingAtPath: filePath) else {
 
 let tokenizer = Tokenizer(file: input)
 while let token = tokenizer.next() {
-    if token.value != "" {
-        print("row: \(token.row) coll: \(token.col), type:\(token.type), value:\(token.value)")
+    if token.source != "" {
+        print("row: \(token.row) coll: \(token.col), type:\(token.type), source:\(token.source)")
     }
 }
 
